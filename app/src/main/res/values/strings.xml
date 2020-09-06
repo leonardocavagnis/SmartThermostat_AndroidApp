@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">Smart Thermostat App</string>
+    <string name="action_settings">Settings</string>
+    <!-- Strings used for fragments for navigation -->
+    <string name="scan_fragment_label">Scan Fragment</string>
+    <string name="connect_fragment_label">Connect Fragment</string>
+
+    <string name="ble_not_supported">This device does not support BLE</string>
+
+    <string name="button_scan_label">Start scan</string>
+    <string name="button_disconnect_label">Disconnect</string>
+    <string name="button_read_temperature_label">Read Temperature</string>
+    <string name="button_led_on_label">Led ON</string>
+    <string name="button_led_off_label">Led OFF</string>
+
+    <string name="togglebutton_on_notif_temperature_label">Disable Notify Temperature</string>
+    <string name="togglebutton_off_notif_temperature_label">Enable Notify Temperature</string>
+
+    <string name="textview_device_name_label">N/A</string>
+    <string name="textview_temperature_label"> --°C</string>
+</resources>

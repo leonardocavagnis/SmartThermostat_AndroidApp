@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/ScanFragment">
+
+    <fragment
+        android:id="@+id/ScanFragment"
+        android:name="com.example.blesample.ScanFragment"
+        android:label="@string/scan_fragment_label"
+        tools:layout="@layout/fragment_scan">
+
+        <action
+            android:id="@+id/action_ScanFragment_to_ConnectFragment"
+            app:destination="@id/ConnectFragment" />
+    </fragment>
+    <fragment
+        android:id="@+id/ConnectFragment"
+        android:name="com.example.blesample.ConnectFragment"
+        android:label="@string/connect_fragment_label"
+        tools:layout="@layout/fragment_connect">
+
+        <action
+            android:id="@+id/action_ConnectFragment_to_ScanFragment"
+            app:destination="@id/ScanFragment" />
+        <argument
+            android:name="deviceAddressFromScan"
+            app:argType="string"
+            android:defaultValue="null" />
+    </fragment>
+</navigation>
