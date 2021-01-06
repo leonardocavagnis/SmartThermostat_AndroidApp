@@ -66,10 +66,10 @@ class ScanFragment : Fragment() {
                 Log.i(TAG, "Selected device (Address: $selectedDeviceAddress)")
 
                 // Stop scanning
-                scanLeDevice(false)
+                scanLeDevice(false);
 
                 // Start "Connect fragment"
-                val bundle = bundleOf("deviceAddressFromScan" to selectedDeviceAddress)
+                var bundle = bundleOf("deviceAddressFromScan" to selectedDeviceAddress)
                 findNavController().navigate(R.id.action_ScanFragment_to_ConnectFragment, bundle)
             }
         }

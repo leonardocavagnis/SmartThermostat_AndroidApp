@@ -6,7 +6,7 @@
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
+        android:roundIcon="@drawable/ic_launcher_background"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
         <activity
@@ -19,6 +19,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <service android:name="org.eclipse.paho.android.service.MqttService"/>
     </application>
     <!-- BLUETOOTH permission -->
     <uses-permission android:name="android.permission.BLUETOOTH"/>
@@ -27,4 +28,9 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <!-- Only BLE permission -->
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="true"/>
+    <!-- MQTT Paho Library permissions -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
 </manifest>

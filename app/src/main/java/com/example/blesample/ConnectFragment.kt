@@ -13,10 +13,13 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
+import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.annotation.RequiresApi
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import kotlinx.android.synthetic.main.fragment_connect.*
+import org.eclipse.paho.client.mqttv3.*
 import java.util.*
 
 private const val TAG                       = "ConnectFragment"
@@ -44,6 +47,24 @@ class ConnectFragment : Fragment() {
 
     // BLE Characteristics value
     private var essTemperature: Float? = null
+    private var prevEssTemperature: Float? = null
+
+    // MQTT connection management
+    private lateinit var mqttClient : MQTTClient
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        activity?.onBackPressedDispatcher?.addCallback(this, object : OnBackPressedCallback(true) {
+            @RequiresApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
+            override fun handleOnBackPressed() {
+                // MQTT Disconnection
+                mqttDisconnection()
+
+                // BLE Disconnection
+                bleGatt.disconnect()
+            }
+        })
+    }
 
     override fun onCreateView(
             inflater: LayoutInflater, container: ViewGroup?,
@@ -84,16 +105,23 @@ class ConnectFragment : Fragment() {
             }
             textview_device_name.append("\r\n"+bleDevice.address)
 
-            // Connect to device
+            // Connect to BLE device
             bleGatt = bleDevice.connectGatt(context, false, bluetoothGattCallback, TRANSPORT_LE)
         } else {
             Log.e(TAG, "Device address is invalid, back to scan")
             findNavController().navigate(R.id.action_ConnectFragment_to_ScanFragment)
         }
 
+        // Open MQTT Broker communication
+        mqttClient = MQTTClient(context, MQTT_SERVER_URI, MQTT_CLIENT_ID)
+
         // Disconnect button
         view.findViewById<Button>(R.id.button_disconnect).setOnClickListener {
             Log.i(TAG, "Press disconnect button")
+            // MQTT Disconnection
+            mqttDisconnection()
+
+            // BLE Disconnection
             bleGatt.disconnect()
         }
 
@@ -157,7 +185,7 @@ class ConnectFragment : Fragment() {
                         if (characteristic.uuid.compareTo(LS_LED_STATUS_CHARACTERISTIC_UUID) == 0) {
                             Log.i(TAG, "Led status characteristic found")
 
-                            val ledStatus:Byte = 1
+                            var ledStatus:Byte = 1
 
                             writeCharacteristic(characteristic, WRITE_TYPE_DEFAULT, byteArrayOf(ledStatus))
                         }
@@ -178,7 +206,7 @@ class ConnectFragment : Fragment() {
                         if (characteristic.uuid.compareTo(LS_LED_STATUS_CHARACTERISTIC_UUID) == 0) {
                             Log.i(TAG, "Led status characteristic found")
 
-                            val ledStatus:Byte = 0
+                            var ledStatus:Byte = 0
 
                             writeCharacteristic(characteristic, WRITE_TYPE_DEFAULT, byteArrayOf(ledStatus))
                         }
@@ -186,6 +214,53 @@ class ConnectFragment : Fragment() {
                 }
             }
 
+        }
+
+        // MQTT Connect button
+        view.findViewById<Button>(R.id.button_mqtt_connect).setOnClickListener {
+            Log.i(TAG, "Press MQTT connect button")
+
+            // Connect and login to MQTT Broker
+            mqttClient.connect(
+                MQTT_USERNAME,
+                MQTT_PWD,
+                object : IMqttActionListener {
+                    override fun onSuccess(asyncActionToken: IMqttToken?) {
+                        Log.d(this.javaClass.name, "MQTT Connection success")
+
+                        Toast.makeText(context, "MQTT Connection success", Toast.LENGTH_SHORT).show()
+                    }
+
+                    override fun onFailure(asyncActionToken: IMqttToken?, exception: Throwable?) {
+                        Log.d(TAG, "Connection failure: ${exception.toString()}")
+
+                        Toast.makeText(context, "MQTT Connection fails: ${exception.toString()}", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                object : MqttCallback {
+                    override fun messageArrived(topic: String?, message: MqttMessage?) {
+                        val msg = "Receive message: ${message.toString()} from topic: $topic"
+                        Log.d(TAG, msg)
+
+                        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                    }
+
+                    override fun connectionLost(cause: Throwable?) {
+                        Log.d(TAG, "Connection lost ${cause.toString()}")
+                    }
+
+                    override fun deliveryComplete(token: IMqttDeliveryToken?) {
+                        Log.d(TAG, "Delivery complete")
+                    }
+                })
+        }
+
+        // MQTT Disconnect button
+        view.findViewById<Button>(R.id.button_mqtt_disconnect).setOnClickListener {
+            Log.i(TAG, "Press MQTT disconnect button")
+
+            // MQTT Disconnection
+            mqttDisconnection()
         }
     }
 
@@ -293,7 +368,8 @@ class ConnectFragment : Fragment() {
                     if (characteristic != null) {
                         when (characteristic.uuid) {
                             ESS_TEMPERATURE_CHARACTERISTIC_UUID -> {
-                                essTemperature = (characteristic.getIntValue(FORMAT_UINT16, 0) / 100).toFloat()
+                                prevEssTemperature = essTemperature
+                                essTemperature = (characteristic.getIntValue(FORMAT_UINT16, 0) / 100).toFloat();
                                 Log.i(TAG, "Temperature: $essTemperature")
                             }
                             else -> {
@@ -302,6 +378,9 @@ class ConnectFragment : Fragment() {
                         }
                     }
                     updateUIValues()
+
+                    mqttPublish(essTemperature)
+
                     Log.i(TAG, "Success")
                 }
                 else -> {
@@ -362,7 +441,7 @@ class ConnectFragment : Fragment() {
                         if (value[0] != 0.toByte()) {
                             if(parentCharacteristic != null) bleNotifyingCharacteristicsList.add(parentCharacteristic.uuid)
                         } else {
-                            if(parentCharacteristic != null) bleNotifyingCharacteristicsList.remove(parentCharacteristic.uuid)
+                            if(parentCharacteristic != null) bleNotifyingCharacteristicsList.remove(parentCharacteristic.uuid);
                         }
                     }
                 } else {
@@ -383,15 +462,17 @@ class ConnectFragment : Fragment() {
             if (characteristic != null) {
                 when (characteristic.uuid) {
                     ESS_TEMPERATURE_CHARACTERISTIC_UUID -> {
-                        essTemperature = (characteristic.getIntValue(FORMAT_UINT16, 0) / 100).toFloat()
+                        prevEssTemperature  = essTemperature
+                        essTemperature      = (characteristic.getIntValue(FORMAT_UINT16, 0) / 100).toFloat();
                         Log.i(TAG, "Temperature: $essTemperature")
                     }
                     else -> {
                         Log.e(TAG, "Error")
                     }
                 }
-
                 updateUIValues()
+
+                if (essTemperature != prevEssTemperature) mqttPublish(essTemperature)
             }
         }
     }
@@ -442,7 +523,7 @@ class ConnectFragment : Fragment() {
         } else {
             Log.e(TAG, "Could not enqueue read characteristic command")
         }
-        return result
+        return result;
     }
 
     private fun nextBluetoothCommand() {
@@ -528,7 +609,7 @@ class ConnectFragment : Fragment() {
         } else {
             Log.e(TAG, "Could not enqueue write characteristic command")
         }
-        return result
+        return result;
     }
 
     @RequiresApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
@@ -540,7 +621,7 @@ class ConnectFragment : Fragment() {
         }
 
         // Get the CCC Descriptor for the characteristic
-        val descriptor = characteristic.getDescriptor(UUID.fromString(CCC_DESCRIPTOR_UUID))
+        var descriptor = characteristic.getDescriptor(UUID.fromString(CCC_DESCRIPTOR_UUID));
         if(descriptor == null) {
             Log.e(TAG, "Could not get CCC descriptor for characteristic")
             return false
@@ -565,7 +646,7 @@ class ConnectFragment : Fragment() {
 
             // Then write to descriptor
             descriptor.value = if (enableNotification) value else DISABLE_NOTIFICATION_VALUE
-            val result: Boolean = bleGatt.writeDescriptor(descriptor)
+            var result: Boolean = bleGatt.writeDescriptor(descriptor)
             if (!result) {
                 Log.e(TAG, "writeDescriptor failed for descriptor")
                 completedBluetoothCommand()
@@ -580,7 +661,7 @@ class ConnectFragment : Fragment() {
             Log.e(TAG, "Could not enqueue write command")
         }
 
-        return result
+        return result;
     }
 
     @RequiresApi(Build.VERSION_CODES.JELLY_BEAN_MR2)
@@ -596,4 +677,43 @@ class ConnectFragment : Fragment() {
         })
     }
 
+    private fun mqttDisconnection() {
+        if (mqttClient.isConnected()) {
+            // Disconnect from MQTT Broker
+            mqttClient.disconnect(object : IMqttActionListener {
+                override fun onSuccess(asyncActionToken: IMqttToken?) {
+                    Log.d(TAG, "MQTT - Disconnected")
+
+                    Toast.makeText(context, "MQTT Disconnection success", Toast.LENGTH_SHORT).show()
+                }
+
+                override fun onFailure(asyncActionToken: IMqttToken?, exception: Throwable?) {
+                    Log.d(TAG, "MQTT - Failed to disconnect")
+                }
+            })
+        } else {
+            Log.d(TAG, "MQTT - Impossible to disconnect, no server connected")
+        }
+    }
+
+    private fun mqttPublish(temperature: Float?) {
+        if (mqttClient.isConnected()) {
+            mqttClient.publish(
+                MQTT_TEMPERATURE_TOPIC,
+                temperature.toString(),
+                1,
+                false,
+                object : IMqttActionListener {
+                    override fun onSuccess(asyncActionToken: IMqttToken?) {
+                        Log.d(TAG, "MQTT - Publish message: $MQTT_TEMPERATURE_TOPIC to topic: $temperature")
+                    }
+
+                    override fun onFailure(asyncActionToken: IMqttToken?, exception: Throwable?) {
+                        Log.d(TAG, "MQTT - Failed to publish message to topic")
+                    }
+                })
+        } else {
+            Log.d(TAG, "MQTT - Impossible to publish, no server connected")
+        }
+    }
 }

@@ -9,6 +9,8 @@ import android.content.Context
 import android.content.DialogInterface
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -45,7 +47,7 @@ class MainActivity : AppCompatActivity() {
             // Permission is not granted
             if (ActivityCompat.shouldShowRequestPermissionRationale(this,
                     Manifest.permission.ACCESS_FINE_LOCATION)) {
-                showExplanation("Location permission not granted", "Please, grant the location permission", Manifest.permission.ACCESS_FINE_LOCATION, PERMISSION_REQUEST_FINE_LOCATION)
+                showExplanation("Location permission not granted", "Please, grant the location permission", Manifest.permission.ACCESS_FINE_LOCATION, PERMISSION_REQUEST_FINE_LOCATION);
                 Log.i(TAG, "Show an explanation to the user")
             } else {
                 // No explanation needed, we can request the permission.
@@ -69,6 +71,13 @@ class MainActivity : AppCompatActivity() {
         bluetoothAdapter?.takeIf { it.isDisabled }?.apply {
             val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
             startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT)
+        }
+
+        // Check if Internet connection is available
+        if (!isConnected()) {
+            Log.d(TAG, "Internet connection NOT available")
+
+            Toast.makeText(applicationContext, "Internet connection NOT available", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -94,7 +103,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
+        super.onActivityResult(requestCode, resultCode, data);
 
         when(requestCode){
             REQUEST_ENABLE_BT -> {
@@ -157,5 +166,33 @@ class MainActivity : AppCompatActivity() {
                     )
                 })
         builder.create().show()
+    }
+
+    private fun isConnected(): Boolean {
+        var result = false
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val capabilities = cm.getNetworkCapabilities(cm.activeNetwork)
+            if (capabilities != null) {
+                result = when {
+                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> true
+                    else -> false
+                }
+            }
+        } else {
+            val activeNetwork = cm.activeNetworkInfo
+            if (activeNetwork != null) {
+                // connected to the internet
+                result = when (activeNetwork.type) {
+                    ConnectivityManager.TYPE_WIFI,
+                    ConnectivityManager.TYPE_MOBILE,
+                    ConnectivityManager.TYPE_VPN -> true
+                    else -> false
+                }
+            }
+        }
+        return result
     }
 }

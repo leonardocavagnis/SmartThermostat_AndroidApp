@@ -12,6 +12,8 @@
     <string name="button_read_temperature_label">Read Temperature</string>
     <string name="button_led_on_label">Led ON</string>
     <string name="button_led_off_label">Led OFF</string>
+    <string name="button_mqtt_connect_label">MQTT Connect</string>
+    <string name="button_mqtt_disconnect_label">MQTT Disconnect</string>
 
     <string name="togglebutton_on_notif_temperature_label">Disable Notify Temperature</string>
     <string name="togglebutton_off_notif_temperature_label">Enable Notify Temperature</string>
